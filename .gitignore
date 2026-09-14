@@ -1,0 +1,10 @@
+*
+
+!.gitignore
+!CLAUDE.md
+!skills/
+!skills/**
+!agents/
+!agents/**
+!rules/
+!rules/**

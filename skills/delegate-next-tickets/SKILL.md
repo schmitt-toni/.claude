@@ -81,6 +81,9 @@ above"):
 - This exact instruction block:
 
 ```
+You are a subagent spawned by the `delegate-new-tickets` skill. Do not use this skill,
+nor spawn further subagents.
+
 Propose how this two-or-more-person team should split the NEXT 2-5 open, unblocked or
 soon-to-be-unblocked tickets so they can work in parallel with minimal merge conflicts. Rules:
 

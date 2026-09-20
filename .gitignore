@@ -8,3 +8,5 @@
 !agents/**
 !rules/
 !rules/**
+!hooks/
+!hooks/**

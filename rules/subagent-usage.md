@@ -28,17 +28,27 @@ are therefore mutually exclusive:
 
 ## Available agents
 
-| Agent | Model ID | Context / output | Notes |
-| --- | --- | --- | --- |
-| `model-fable-5-1` | `claude-fable-5-1` | 1M / 128k | Current Fable |
-| `model-fable-5` | `claude-fable-5` | 1M / 128k | |
-| `model-opus-5` | `claude-opus-5` | 1M / 128k | Current Opus; fast mode |
-| `model-opus-4-8` | `claude-opus-4-8` | 1M / 128k | Fast mode |
-| `model-opus-4-7` | `claude-opus-4-7` | 1M / 128k | Defaults to `xhigh` effort |
-| `model-opus-4-6` | `claude-opus-4-6` | 1M / 128k | No `xhigh` effort; fast mode |
-| `model-sonnet-5` | `claude-sonnet-5` | 1M / 128k | Current Sonnet |
-| `model-sonnet-4-6` | `claude-sonnet-4-6` | 1M / 128k | No `xhigh` effort |
-| `model-haiku-4-5` | `claude-haiku-4-5-20251001` | 200k / 64k | No effort levels |
+Every model has a base agent, `model-<model>`, which runs at the session's effort, and one agent
+per effort level it supports, `model-<model>-<effort>`, which pins the effort too — for example
+`model-opus-5-5-high`. The `Agent` tool has no effort parameter, so an effort-pinned agent is the
+only way to choose a subagent's effort. `CLAUDE_CODE_EFFORT_LEVEL`, when set, overrides the pin.
+
+The levels are `low`, `medium`, `high`, `xhigh` and `max`. A model only gets agents for the levels
+it supports, because an unsupported level is not rejected: it is silently lowered (`xhigh` becomes
+`high`) or dropped, and the agent would run at an effort other than its name says.
+
+| Agent | Model ID | Context / output | Effort versions | Notes |
+| --- | --- | --- | --- | --- |
+| `model-fable-5-1` | `claude-fable-5-1` | 1M / 128k | all | Current Fable |
+| `model-fable-5` | `claude-fable-5` | 1M / 128k | all | |
+| `model-opus-5-5` | `claude-opus-5-5` | 1M / 128k | all | Current Opus; defaults to `medium` effort |
+| `model-opus-5` | `claude-opus-5` | 1M / 128k | all | Fast mode |
+| `model-opus-4-8` | `claude-opus-4-8` | 1M / 128k | all | Fast mode |
+| `model-opus-4-7` | `claude-opus-4-7` | 1M / 128k | all | Defaults to `xhigh` effort |
+| `model-opus-4-6` | `claude-opus-4-6` | 1M / 128k | all but `xhigh` | No `xhigh` effort; fast mode |
+| `model-sonnet-5` | `claude-sonnet-5` | 1M / 128k | all | Current Sonnet |
+| `model-sonnet-4-6` | `claude-sonnet-4-6` | 1M / 128k | all but `xhigh` | No `xhigh` effort |
+| `model-haiku-4-5` | `claude-haiku-4-5-20251001` | 200k / 64k | none | No effort levels |
 
 Opus 4.1 (`claude-opus-4-1-20250805`) is offered on Bedrock and Vertex only, not on a first-party
 Anthropic subscription, so it has no agent here.

@@ -46,7 +46,8 @@ it supports, because an unsupported level is not rejected: it is silently lowere
 | `model-opus-4-8` | `claude-opus-4-8` | 1M / 128k | all | Fast mode |
 | `model-opus-4-7` | `claude-opus-4-7` | 1M / 128k | all | Defaults to `xhigh` effort |
 | `model-opus-4-6` | `claude-opus-4-6` | 1M / 128k | all but `xhigh` | No `xhigh` effort; fast mode |
-| `model-sonnet-5` | `claude-sonnet-5` | 1M / 128k | all | Current Sonnet |
+| `model-sonnet-5-5` | `claude-sonnet-5-5` | 1M / 128k | all | Current Sonnet; defaults to `medium` effort |
+| `model-sonnet-5` | `claude-sonnet-5` | 1M / 128k | all | |
 | `model-sonnet-4-6` | `claude-sonnet-4-6` | 1M / 128k | all but `xhigh` | No `xhigh` effort |
 | `model-haiku-4-5` | `claude-haiku-4-5-20251001` | 200k / 64k | none | No effort levels |
 

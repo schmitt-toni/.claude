@@ -3,6 +3,12 @@
 - Comment the **current state only**. Never write what the code used to be, what it replaced, or
   what will replace it. No "was X before", "temporary until Y", "will be replaced in milestone Z",
   "the real version lands with W". A comment is read by someone looking at the code as it is now.
+- **The exception is a past failure that is the reason a constraint exists.** A threshold, a
+  guard or an invariant that would read as arbitrary without it may name what went wrong — "this
+  budget only counts turns where nothing succeeded; counted otherwise, a model looping on a bad
+  path burned every iteration at full price". That is not history, it is the rationale, and a
+  reader who does not have it will eventually remove the guard. Keep it to the constraint at
+  hand: still no milestones, no "as discussed", no narrating the refactor that produced the file.
 - A comment explains **why**: the constraint, the trade-off, the failure it prevents, the
   alternative that was rejected and what went wrong with it. The code already says what it does.
 - Comment the non-obvious decision, not the routine one. If a choice is the conventional default,

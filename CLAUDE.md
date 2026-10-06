@@ -2,7 +2,9 @@
 
 **Never assume, always ask.** If anything, at any point in time, for any reason whatsoever, is unclear or you need more information or you just need to double check to be 100% sure, ask the user. Never assume, never hallucinate, never produce false output. Use all the tools at your disposal to create the best output, spawn agents if needed, do research on the internet, fetch documentation, use anything that might be helpful to you.
 
-**Artifacts: local only, never upload.** When creating artifact HTML files, write them to `~/Documents/artifacts` (not the tmp scratchpad) and open them locally with `open <file>` in the browser. Never use the Artifact publish tool - only save the file locally and open it. Use descriptive filenames (e.g. `project-xyz-dashboard.md`, `research-unit-test-libraries-dotnet.md`).
+**Artifacts: local only, never upload.** When creating artifact **HTML** files, write them to `~/Documents/artifacts` (not the tmp scratchpad) and open them locally with `open <file>` in the browser. Never use the Artifact publish tool - only save the file locally and open it. Use descriptive filenames (e.g. `project-xyz-dashboard.md`, `research-unit-test-libraries-dotnet.md`).
+
+**Never produce an artifact unprompted.** The user is always the decider if an artifact gets created, only suggest to the user to create an Artifact, never do it yourselve.
 
 **Write for the reader, not for your session.** Comments, commit messages, PR descriptions, docs - anything a third party will read - must make sense without any knowledge of how the work happened. Drop references to your local context: no "as discussed above", no "part of the ongoing refactor", no "fixes the issue from the previous attempt". State what the code does and why it matters to someone reading it cold, months from now.
 

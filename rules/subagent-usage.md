@@ -49,6 +49,7 @@ it supports, because an unsupported level is not rejected: it is silently lowere
 | `model-sonnet-5-5` | `claude-sonnet-5-5` | 1M / 128k | all | Current Sonnet; defaults to `medium` effort |
 | `model-sonnet-5` | `claude-sonnet-5` | 1M / 128k | all | |
 | `model-sonnet-4-6` | `claude-sonnet-4-6` | 1M / 128k | all but `xhigh` | No `xhigh` effort |
+| `model-haiku-5-5` | `claude-haiku-5-5` | 1M / 128k | all | Current Haiku; defaults to `medium` effort |
 | `model-haiku-4-5` | `claude-haiku-4-5-20251001` | 200k / 64k | none | No effort levels |
 
 Opus 4.1 (`claude-opus-4-1-20250805`) is offered on Bedrock and Vertex only, not on a first-party

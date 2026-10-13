@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pull request review findings",
+  "description": "Input of scripts/post-review.ts. An inline finding becomes a comment on a line of the PR diff; a finding with inline set to false is posted under General findings in the review summary. The rules for severity, blocking and category are in the SKILL.md next to this file. The script also requires startLine to be lower than line, which JSON Schema cannot express.",
+  "type": "object",
+  "required": ["findings"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["severity", "category", "title", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "severity": {
+          "description": "One of the levels under \"Severity levels\" in SKILL.md.",
+          "enum": ["critical", "major", "minor", "nitpick", "question"]
+        },
+        "category": {
+          "description": "Exactly one category, spelled as listed.",
+          "enum": [
+            "Security",
+            "Bug",
+            "Performance",
+            "Error Handling",
+            "Maintainability",
+            "Tests",
+            "Docs",
+            "Style"
+          ]
+        },
+        "blocking": {
+          "description": "Only for a non-blocking major finding: false, with an explanation that starts with \"Non-blocking because\". Leave it out otherwise; critical and major findings then block, all others never do.",
+          "type": "boolean"
+        },
+        "inline": {
+          "description": "false posts the finding in the review summary instead of as an inline comment: for findings about the PR as a whole, or about code that is not in the diff.",
+          "type": "boolean",
+          "default": true
+        },
+        "path": {
+          "description": "File path relative to the repository root, as it appears in the PR diff. Required for an inline finding. Optional otherwise; it then links the file at the PR's head commit.",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "line": {
+          "description": "The line the finding applies to; for a range, its last line. Required for an inline finding, where it must be in the PR diff on the given side. Optional otherwise and then needs path; it is a line number of the file at the PR's head commit and is not checked.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "startLine": {
+          "description": "The first line of a range, lower than line. For an inline finding, both ends must lie in the same diff hunk.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "side": {
+          "description": "Inline findings only. RIGHT (default): line numbers of the PR's version of the file, for added and unchanged lines. LEFT: line numbers of the base version, for deleted lines.",
+          "enum": ["LEFT", "RIGHT"],
+          "default": "RIGHT"
+        },
+        "title": {
+          "description": "Short title on a single line, at most 10 words.",
+          "type": "string",
+          "pattern": "^[^\\S\\n]*\\S+(?:[^\\S\\n]+\\S+){0,9}[^\\S\\n]*$"
+        },
+        "explanation": {
+          "description": "What is wrong and why it matters, 1–4 sentences.",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "suggestion": {
+          "description": "Inline findings on the RIGHT side only. Code that replaces the anchored lines, when the fix is local to them. Rendered as a GitHub suggestion block, so it must keep the file's indentation. An empty string suggests deleting the lines.",
+          "type": "string"
+        },
+        "fix": {
+          "description": "The fix in prose, when it is not local to the anchored lines or the finding is not inline.",
+          "type": "string",
+          "pattern": "\\S"
+        }
+      },
+      "dependentRequired": {
+        "line": ["path"],
+        "startLine": ["line"]
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["inline"],
+            "properties": { "inline": { "const": false } }
+          },
+          "then": {
+            "not": {
+              "anyOf": [{ "required": ["side"] }, { "required": ["suggestion"] }]
+            }
+          },
+          "else": { "required": ["path", "line"] }
+        },
+        { "not": { "required": ["fix", "suggestion"] } },
+        {
+          "if": { "required": ["suggestion"] },
+          "then": { "properties": { "side": { "const": "RIGHT" } } }
+        },
+        {
+          "if": { "properties": { "severity": { "const": "critical" } } },
+          "then": { "properties": { "blocking": { "const": true } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "severity": { "enum": ["minor", "nitpick", "question"] }
+            }
+          },
+          "then": { "properties": { "blocking": { "const": false } } }
+        },
+        {
+          "if": { "properties": { "severity": { "const": "major" } } },
+          "then": {
+            "if": {
+              "required": ["blocking"],
+              "properties": { "blocking": { "const": false } }
+            },
+            "then": {
+              "properties": {
+                "explanation": {
+                  "type": "string",
+                  "pattern": "^\\s*Non-blocking because"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "explanation": {
+                  "type": "string",
+                  "not": {
+                    "type": "string",
+                    "pattern": "^\\s*Non-blocking because"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "findings": [
+        {
+          "severity": "major",
+          "blocking": false,
+          "category": "Error Handling",
+          "path": "src/orders/service.ts",
+          "startLine": 40,
+          "line": 42,
+          "title": "Retry loop swallows the final error",
+          "explanation": "Non-blocking because the caller logs the failed order. The last error of the retry loop is dropped, so the log never says why it failed.",
+          "suggestion": "throw lastError;"
+        },
+        {
+          "severity": "minor",
+          "category": "Tests",
+          "inline": false,
+          "path": "src/orders/repository.ts",
+          "line": 88,
+          "title": "Unchanged caller is not covered for cents",
+          "explanation": "The repository now receives amounts in cents, but its tests still pass euros, so a regression in the conversion goes unnoticed.",
+          "fix": "Update the repository tests to pass amounts in cents."
+        }
+      ]
+    }
+  ]
+}

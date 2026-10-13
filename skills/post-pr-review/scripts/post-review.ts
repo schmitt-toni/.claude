@@ -1,6 +1,8 @@
 #!/usr/bin/env -S deno run --allow-run=gh --allow-read
 // Renders review findings into GitHub inline comments and a review summary,
-// validates every anchor against the PR diff and posts the review in one call.
+// validates every inline anchor against the PR diff and posts the review in one
+// call. Findings that are not inline are rendered into the review summary. The
+// findings file follows ../findings.schema.json.
 //
 // Usage: post-review.ts --pr <number> [--repo <[host/]owner/name>] [--dry-run] <findings.json>
 //   --pr       required. Pull request number.
@@ -12,7 +14,9 @@
 // posting the review.
 
 export type Severity = "critical" | "major" | "minor" | "nitpick" | "question";
-export type Side = "LEFT" | "RIGHT";
+
+export const SIDES = ["LEFT", "RIGHT"] as const;
+export type Side = typeof SIDES[number];
 
 export const CATEGORIES = [
   "Security",
@@ -26,19 +30,34 @@ export const CATEGORIES = [
 ] as const;
 export type Category = typeof CATEGORIES[number];
 
-export interface Finding {
+interface FindingBase {
   severity: Severity;
   category: Category;
   blocking: boolean;
+  title: string;
+  explanation: string;
+  fix?: string;
+}
+
+export interface InlineFinding extends FindingBase {
+  inline: true;
   path: string;
   line: number;
   startLine?: number;
   side: Side;
-  title: string;
-  explanation: string;
-  fix?: string;
   suggestion?: string;
 }
+
+// Posted in the review summary. Its lines are line numbers of the file at the
+// PR's head commit and are not checked against the diff.
+export interface GeneralFinding extends FindingBase {
+  inline: false;
+  path?: string;
+  line?: number;
+  startLine?: number;
+}
+
+export type Finding = InlineFinding | GeneralFinding;
 
 export interface ReviewComment {
   path: string;
@@ -62,7 +81,7 @@ export interface FileDiff {
   right: Map<number, number>;
 }
 
-interface PullRequest {
+export interface PullRequest {
   url: string;
   host: string;
   owner: string;
@@ -86,12 +105,13 @@ const SEVERITIES: Record<Severity, { emoji: string; label: string }> = {
   nitpick: { emoji: "🔵", label: "Nitpick" },
   question: { emoji: "💬", label: "Question" },
 };
-const SEVERITY_ORDER = Object.keys(SEVERITIES) as Severity[];
+export const SEVERITY_ORDER = Object.keys(SEVERITIES) as Severity[];
 
-const FINDING_FIELDS = new Set([
+export const FINDING_FIELDS = new Set([
   "severity",
   "category",
   "blocking",
+  "inline",
   "path",
   "line",
   "startLine",
@@ -101,7 +121,7 @@ const FINDING_FIELDS = new Set([
   "fix",
   "suggestion",
 ]);
-const MAX_TITLE_WORDS = 10;
+export const MAX_TITLE_WORDS = 10;
 const NON_BLOCKING_PREFIX = "Non-blocking because";
 
 const USAGE =
@@ -184,15 +204,17 @@ function parseFinding(entry: unknown): Finding | string[] {
     severity,
     category,
     blocking,
+    inline = true,
     path,
     line,
     startLine,
-    side = "RIGHT",
+    side,
     title,
     explanation,
     fix,
     suggestion,
   } = entry;
+  const isInline = inline !== false;
 
   if (!isSeverity(severity)) {
     errors.push(`severity must be one of: ${SEVERITY_ORDER.join(", ")}`);
@@ -203,16 +225,30 @@ function parseFinding(entry: unknown): Finding | string[] {
   if (blocking !== undefined && typeof blocking !== "boolean") {
     errors.push("blocking must be true or false");
   }
-  if (!isNonEmptyString(path)) errors.push("path must be a non-empty string");
-  if (!isLineNumber(line)) errors.push("line must be a positive integer");
+  if (typeof inline !== "boolean") errors.push("inline must be true or false");
+  if ((isInline || path !== undefined) && !isNonEmptyString(path)) {
+    errors.push("path must be a non-empty string");
+  }
+  if ((isInline || line !== undefined) && !isLineNumber(line)) {
+    errors.push("line must be a positive integer");
+  }
+  if (!isInline && line !== undefined && path === undefined) {
+    errors.push("line needs a path");
+  }
   if (startLine !== undefined && !isLineNumber(startLine)) {
     errors.push("startLine must be a positive integer");
+  }
+  if (!isInline && startLine !== undefined && line === undefined) {
+    errors.push("startLine needs a line");
   }
   if (isLineNumber(line) && isLineNumber(startLine) && startLine >= line) {
     errors.push("startLine must be lower than line; omit it for a single line");
   }
-  if (side !== "LEFT" && side !== "RIGHT") {
+  if (isInline && side !== undefined && !isSide(side)) {
     errors.push('side must be "LEFT" or "RIGHT"');
+  }
+  if (!isInline && side !== undefined) {
+    errors.push("side only applies to inline findings");
   }
   errors.push(...titleErrors(title));
   if (!isNonEmptyString(explanation)) {
@@ -227,7 +263,12 @@ function parseFinding(entry: unknown): Finding | string[] {
   if (fix !== undefined && suggestion !== undefined) {
     errors.push("use either fix or suggestion, not both");
   }
-  if (suggestion !== undefined && side === "LEFT") {
+  if (!isInline && suggestion !== undefined) {
+    errors.push(
+      "a suggestion can only be applied from an inline comment; use fix instead",
+    );
+  }
+  if (isInline && suggestion !== undefined && side === "LEFT") {
     errors.push(
       "a suggestion replaces lines in the PR's version of the file, so it needs side RIGHT",
     );
@@ -238,19 +279,32 @@ function parseFinding(entry: unknown): Finding | string[] {
 
   if (errors.length > 0) return errors;
   const validSeverity = severity as Severity;
-  return {
+  const finding = {
     severity: validSeverity,
     category: category as Category,
     blocking: typeof blocking === "boolean"
       ? blocking
       : isBlockingByDefault(validSeverity),
-    path: path as string,
-    line: line as number,
-    startLine: startLine as number | undefined,
-    side: side as Side,
     title: (title as string).trim(),
     explanation: (explanation as string).trim(),
     fix: fix as string | undefined,
+  };
+  if (!isInline) {
+    return {
+      ...finding,
+      inline: false,
+      path: path as string | undefined,
+      line: line as number | undefined,
+      startLine: startLine as number | undefined,
+    };
+  }
+  return {
+    ...finding,
+    inline: true,
+    path: path as string,
+    line: line as number,
+    startLine: startLine as number | undefined,
+    side: (side ?? "RIGHT") as Side,
     suggestion: suggestion as string | undefined,
   };
 }
@@ -404,7 +458,7 @@ function unquoteGitPath(quoted: string): string {
 }
 
 export function anchorError(
-  finding: Finding,
+  finding: InlineFinding,
   files: Map<string, FileDiff>,
 ): string | undefined {
   const file = files.get(finding.path);
@@ -431,24 +485,53 @@ export function anchorError(
   // GitHub rejects the whole review with a 422 when a multi-line comment
   // spans two hunks.
   if (startHunk !== hunk) {
-    return `${
-      location(finding)
-    } spans more than one diff hunk; a range must stay inside one hunk`;
+    return `${finding.path}:${finding.startLine}-${finding.line} spans more than one diff hunk; a range must stay inside one hunk`;
   }
   return undefined;
 }
 
-export function renderComment(finding: Finding): string {
-  const { emoji, label } = SEVERITIES[finding.severity];
-  const header = finding.blocking
-    ? `${emoji} **${label}** · ⛔ **Blocking** · \`${finding.category}\``
-    : `${emoji} **${label}** · \`${finding.category}\``;
-  const sections = [header, `**${finding.title}**`, finding.explanation];
+export function renderComment(finding: InlineFinding): string {
+  const sections = [...renderHeading(finding), finding.explanation];
   if (finding.fix !== undefined) sections.push(finding.fix);
   if (finding.suggestion !== undefined) {
     sections.push(suggestionBlock(finding.suggestion));
   }
   return sections.join("\n\n");
+}
+
+function renderGeneralFinding(
+  finding: GeneralFinding,
+  blobUrl: string,
+): string {
+  const sections = renderHeading(finding);
+  const link = permalink(finding, blobUrl);
+  if (link !== undefined) sections.push(link);
+  sections.push(finding.explanation);
+  if (finding.fix !== undefined) sections.push(finding.fix);
+  return sections.join("\n\n");
+}
+
+function renderHeading(finding: Finding): string[] {
+  const { emoji, label } = SEVERITIES[finding.severity];
+  const header = finding.blocking
+    ? `${emoji} **${label}** · ⛔ **Blocking** · \`${finding.category}\``
+    : `${emoji} **${label}** · \`${finding.category}\``;
+  return [header, `**${finding.title}**`];
+}
+
+// blobUrl points at the PR's head commit, so the link keeps showing the code
+// the finding was written about after later pushes.
+function permalink(
+  finding: GeneralFinding,
+  blobUrl: string,
+): string | undefined {
+  if (finding.path === undefined) return undefined;
+  const file = `${blobUrl}/${
+    finding.path.split("/").map(encodeURIComponent).join("/")
+  }`;
+  if (finding.line === undefined) return file;
+  if (finding.startLine === undefined) return `${file}#L${finding.line}`;
+  return `${file}#L${finding.startLine}-L${finding.line}`;
 }
 
 // Markdown closes a fence only on a backtick run at least as long as the
@@ -465,7 +548,7 @@ function suggestionBlock(code: string): string {
   return `${fence}suggestion\n${content}\n${fence}`;
 }
 
-export function renderSummary(findings: Finding[]): string {
+export function renderSummary(findings: Finding[], blobUrl: string): string {
   const blocking = findings.filter((finding) => finding.blocking);
   const rows = SEVERITY_ORDER.map((severity) => {
     const { emoji, label } = SEVERITIES[severity];
@@ -479,12 +562,21 @@ export function renderSummary(findings: Finding[]): string {
     ["| Severity | Count |", "|---|---|", ...rows].join("\n"),
   ];
   if (blocking.length > 0) {
-    const items = blocking.map((finding) =>
-      `- ${SEVERITIES[finding.severity].emoji} ${finding.title} (${
-        location(finding)
-      })`
-    );
+    const items = blocking.map((finding) => {
+      const item = `- ${SEVERITIES[finding.severity].emoji} ${finding.title}`;
+      const where = location(finding);
+      return where === undefined ? item : `${item} (${where})`;
+    });
     sections.push(["## ⛔ Blocking issues", ...items].join("\n"));
+  }
+  const general = findings.filter((finding): finding is GeneralFinding =>
+    !finding.inline
+  );
+  if (general.length > 0) {
+    const entries = general.map((finding) =>
+      renderGeneralFinding(finding, blobUrl)
+    );
+    sections.push(`## General findings\n\n${entries.join("\n\n---\n\n")}`);
   }
   return sections.join("\n\n");
 }
@@ -502,27 +594,33 @@ function verdict(blockingCount: number): string {
 export function sortFindings(findings: Finding[]): Finding[] {
   return [...findings].sort((a, b) =>
     SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) ||
-    compareStrings(a.path, b.path) ||
-    (a.startLine ?? a.line) - (b.startLine ?? b.line)
+    compareStrings(a.path ?? "", b.path ?? "") ||
+    (a.startLine ?? a.line ?? 0) - (b.startLine ?? b.line ?? 0)
   );
 }
 
 export function buildReview(
   findings: Finding[],
-  commitId: string,
+  pullRequest: PullRequest,
 ): ReviewPayload {
   const sorted = sortFindings(findings);
   return {
-    commit_id: commitId,
+    commit_id: pullRequest.headSha,
     event: sorted.some((finding) => finding.blocking)
       ? "REQUEST_CHANGES"
       : "COMMENT",
-    body: renderSummary(sorted),
-    comments: sorted.map(toReviewComment),
+    body: renderSummary(sorted, blobUrl(pullRequest)),
+    comments: sorted
+      .filter((finding): finding is InlineFinding => finding.inline)
+      .map(toReviewComment),
   };
 }
 
-function toReviewComment(finding: Finding): ReviewComment {
+function blobUrl(pullRequest: PullRequest): string {
+  return `https://${pullRequest.host}/${pullRequest.owner}/${pullRequest.repo}/blob/${pullRequest.headSha}`;
+}
+
+function toReviewComment(finding: InlineFinding): ReviewComment {
   const comment: ReviewComment = {
     path: finding.path,
     line: finding.line,
@@ -553,7 +651,7 @@ function issueReferenceWarnings(findings: Finding[]): string[] {
     const references = findIssueReferences(finding);
     if (references.length === 0) return [];
     return [
-      `${location(finding)}: ${
+      `${location(finding) ?? `"${finding.title}"`}: ${
         references.join(", ")
       } will link to a GitHub issue or PR; keep it only if that is intended`,
     ];
@@ -592,7 +690,9 @@ export function renderPreview(
   return parts.join("\n");
 }
 
-function location(finding: Finding): string {
+function location(finding: Finding): string | undefined {
+  if (finding.path === undefined) return undefined;
+  if (finding.line === undefined) return finding.path;
   const lines = finding.startLine === undefined
     ? `${finding.line}`
     : `${finding.startLine}-${finding.line}`;
@@ -615,6 +715,10 @@ function isSeverity(value: unknown): value is Severity {
 
 function isCategory(value: unknown): value is Category {
   return (CATEGORIES as readonly unknown[]).includes(value);
+}
+
+function isSide(value: unknown): value is Side {
+  return (SIDES as readonly unknown[]).includes(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -718,6 +822,7 @@ async function main(args: string[]): Promise<number> {
     ]),
   );
   const anchorErrors = findings
+    .filter((finding): finding is InlineFinding => finding.inline)
     .map((finding) => anchorError(finding, diff))
     .filter((error): error is string => error !== undefined);
   if (anchorErrors.length > 0) {
@@ -728,7 +833,7 @@ async function main(args: string[]): Promise<number> {
     return 1;
   }
 
-  const review = buildReview(findings, pullRequest.headSha);
+  const review = buildReview(findings, pullRequest);
   if (review.event === "REQUEST_CHANGES") {
     const viewer = (await gh([
       "api",

@@ -1,21 +1,30 @@
 import assert from "node:assert/strict";
+import schema from "../findings.schema.json" with { type: "json" };
 import {
   anchorError,
   buildReview,
-  type Finding,
+  CATEGORIES,
+  FINDING_FIELDS,
   findIssueReferences,
+  type GeneralFinding,
+  type InlineFinding,
+  MAX_TITLE_WORDS,
   parseArgs,
   parseDiff,
   parseFindings,
+  type PullRequest,
   renderComment,
   renderSummary,
+  SEVERITY_ORDER,
+  SIDES,
 } from "./post-review.ts";
 
-function finding(overrides: Partial<Finding> = {}): Finding {
+function finding(overrides: Partial<InlineFinding> = {}): InlineFinding {
   return {
     severity: "minor",
     category: "Bug",
     blocking: false,
+    inline: true,
     path: "src/app.ts",
     line: 3,
     side: "RIGHT",
@@ -24,6 +33,31 @@ function finding(overrides: Partial<Finding> = {}): Finding {
     ...overrides,
   };
 }
+
+function generalFinding(
+  overrides: Partial<GeneralFinding> = {},
+): GeneralFinding {
+  return {
+    severity: "minor",
+    category: "Docs",
+    blocking: false,
+    inline: false,
+    title: "README still documents the old flag",
+    explanation: "The --legacy flag was removed.",
+    ...overrides,
+  };
+}
+
+const PULL_REQUEST: PullRequest = {
+  url: "https://github.com/acme/shop/pull/12",
+  host: "github.com",
+  owner: "acme",
+  repo: "shop",
+  number: 12,
+  headSha: "abc123",
+  author: "octocat",
+};
+const BLOB_URL = "https://github.com/acme/shop/blob/abc123";
 
 function rawFinding(overrides: Record<string, unknown> = {}) {
   return {
@@ -107,9 +141,64 @@ Deno.test("parseFindings applies defaults", () => {
     findings: [rawFinding(), rawFinding({ severity: "major" })],
   });
   assert.deepEqual(errors, []);
-  assert.equal(findings[0].side, "RIGHT");
-  assert.equal(findings[0].blocking, false);
-  assert.equal(findings[1].blocking, true);
+  const [minor, major] = findings;
+  assert.ok(minor.inline);
+  assert.equal(minor.side, "RIGHT");
+  assert.equal(minor.blocking, false);
+  assert.equal(major.blocking, true);
+});
+
+Deno.test("parseFindings accepts findings that are not inline", () => {
+  const { findings, errors } = parseFindings({
+    findings: [
+      rawFinding({ inline: false, path: undefined, line: undefined }),
+      rawFinding({ inline: false, line: undefined }),
+      rawFinding({ inline: false, startLine: 1, fix: "Do x." }),
+    ],
+  });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    findings.map(({ inline, path, line, startLine }) => ({
+      inline,
+      path,
+      line,
+      startLine,
+    })),
+    [
+      { inline: false, path: undefined, line: undefined, startLine: undefined },
+      {
+        inline: false,
+        path: "src/app.ts",
+        line: undefined,
+        startLine: undefined,
+      },
+      { inline: false, path: "src/app.ts", line: 3, startLine: 1 },
+    ],
+  );
+});
+
+Deno.test("parseFindings checks the anchor of findings that are not inline", () => {
+  assert.deepEqual(errorsFor({ inline: "no" }), [
+    "inline must be true or false",
+  ]);
+  assert.deepEqual(errorsFor({ inline: false, path: undefined }), [
+    "line needs a path",
+  ]);
+  assert.deepEqual(
+    errorsFor({ inline: false, line: undefined, startLine: 1 }),
+    ["startLine needs a line"],
+  );
+  assert.deepEqual(errorsFor({ inline: false, side: "RIGHT" }), [
+    "side only applies to inline findings",
+  ]);
+  assert.match(
+    errorsFor({ inline: false, suggestion: "y" })[0],
+    /use fix instead/,
+  );
+  assert.deepEqual(errorsFor({ path: undefined, line: undefined }), [
+    "path must be a non-empty string",
+    "line must be a positive integer",
+  ]);
 });
 
 Deno.test("parseFindings requires at least one finding", () => {
@@ -297,7 +386,7 @@ Deno.test("renderSummary counts severities and lists blocking issues", () => {
       line: 4,
     }),
     finding({ severity: "question" }),
-  ]);
+  ], BLOB_URL);
   assert.equal(
     summary,
     [
@@ -322,14 +411,17 @@ Deno.test("renderSummary counts severities and lists blocking issues", () => {
 });
 
 Deno.test("renderSummary omits the blocking section when there is none", () => {
-  const summary = renderSummary([finding()]);
+  const summary = renderSummary([finding()], BLOB_URL);
   assert.match(
     summary,
     /^# 🤖 Review\n\nNo blocking issues, a few suggestions below\./,
   );
   assert.doesNotMatch(summary, /Blocking issues/);
   assert.match(
-    renderSummary([finding({ severity: "critical", blocking: true })]),
+    renderSummary(
+      [finding({ severity: "critical", blocking: true })],
+      BLOB_URL,
+    ),
     /\n1 blocking issue must be resolved before merge\.\n/,
   );
 });
@@ -346,7 +438,7 @@ Deno.test("buildReview orders comments and picks the review state", () => {
       startLine: 2,
       line: 5,
     }),
-  ], "abc123");
+  ], PULL_REQUEST);
   assert.equal(review.commit_id, "abc123");
   assert.equal(review.event, "REQUEST_CHANGES");
   assert.deepEqual(
@@ -364,7 +456,62 @@ Deno.test("buildReview orders comments and picks the review state", () => {
       { path: "a.ts", line: 1, side: "RIGHT" },
     ],
   );
-  assert.equal(buildReview([finding()], "abc123").event, "COMMENT");
+  assert.equal(buildReview([finding()], PULL_REQUEST).event, "COMMENT");
+});
+
+Deno.test("renderSummary lists findings that are not inline", () => {
+  const summary = renderSummary([
+    generalFinding({
+      severity: "major",
+      category: "Bug",
+      blocking: true,
+      path: "src/orders/café repo.ts",
+      startLine: 86,
+      line: 88,
+      title: "Unchanged caller now passes cents",
+      explanation: "The repository still divides by 100.",
+      fix: "Drop the division.",
+    }),
+    generalFinding({ severity: "nitpick", path: "README.md" }),
+    generalFinding({ severity: "question" }),
+  ], BLOB_URL);
+  assert.equal(
+    summary.slice(summary.indexOf("## ⛔ Blocking issues")),
+    [
+      [
+        "## ⛔ Blocking issues",
+        "- 🟠 Unchanged caller now passes cents (src/orders/café repo.ts:86-88)",
+      ].join("\n"),
+      "## General findings",
+      "🟠 **Major** · ⛔ **Blocking** · `Bug`",
+      "**Unchanged caller now passes cents**",
+      "https://github.com/acme/shop/blob/abc123/src/orders/caf%C3%A9%20repo.ts#L86-L88",
+      "The repository still divides by 100.",
+      "Drop the division.",
+      "---",
+      "🔵 **Nitpick** · `Docs`",
+      "**README still documents the old flag**",
+      "https://github.com/acme/shop/blob/abc123/README.md",
+      "The --legacy flag was removed.",
+      "---",
+      "💬 **Question** · `Docs`",
+      "**README still documents the old flag**",
+      "The --legacy flag was removed.",
+    ].join("\n\n"),
+  );
+});
+
+Deno.test("buildReview posts only inline findings as comments", () => {
+  const review = buildReview([
+    generalFinding({ severity: "critical", blocking: true }),
+    finding({ path: "a.ts", line: 4 }),
+  ], PULL_REQUEST);
+  assert.equal(review.event, "REQUEST_CHANGES");
+  assert.deepEqual(review.comments.map(({ path, line }) => ({ path, line })), [
+    { path: "a.ts", line: 4 },
+  ]);
+  assert.match(review.body, /## General findings\n\n🔴 \*\*Critical\*\*/);
+  assert.match(review.body, /- 🔴 README still documents the old flag\n/);
 });
 
 Deno.test("findIssueReferences ignores code, entities and URLs", () => {
@@ -376,4 +523,34 @@ Deno.test("findIssueReferences ignores code, entities and URLs", () => {
     })),
     ["#12", "#8"],
   );
+});
+
+Deno.test("the schema matches the fields and values the script accepts", () => {
+  const { properties, required } = schema.$defs.finding;
+  assert.deepEqual(Object.keys(properties).sort(), [...FINDING_FIELDS].sort());
+  assert.deepEqual(properties.severity.enum, SEVERITY_ORDER);
+  assert.deepEqual(properties.category.enum, CATEGORIES);
+  assert.deepEqual(properties.side.enum, SIDES);
+
+  for (const field of required) {
+    assert.notDeepEqual(errorsFor({ [field]: undefined }), [], field);
+  }
+  const only = (fields: string[]) =>
+    Object.fromEntries(
+      Object.entries(rawFinding()).filter(([key]) => fields.includes(key)),
+    );
+  assert.deepEqual(
+    parseFindings({ findings: [{ ...only(required), inline: false }] }).errors,
+    [],
+  );
+  assert.deepEqual(
+    parseFindings({ findings: [only([...required, "path", "line"])] }).errors,
+    [],
+  );
+
+  const title = new RegExp(properties.title.pattern, "u");
+  const words = (count: number) => Array(count).fill("word").join(" ");
+  assert.match(words(MAX_TITLE_WORDS), title);
+  assert.doesNotMatch(words(MAX_TITLE_WORDS + 1), title);
+  assert.doesNotMatch("two\nlines", title);
 });

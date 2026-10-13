@@ -5,9 +5,9 @@ description: Publish the review on the Pull Request
 
 Publish the review on the Pull Request. You **must** have at least one finding to publish a review. If there are no findings, stop and ask the user.
 
-Every finding becomes a separate inline comment on the file and line where it occurred. If a finding spans several lines, anchor it to the range.
+Every finding on a line of the PR diff becomes a separate inline comment on that file and line. If a finding spans several lines, anchor it to the range. A finding that cannot be anchored to the diff, because it is about the PR as a whole or about code the PR does not change, sets `inline` to `false` and is posted under General findings in the review summary.
 
-You decide severity, blocking and category, and write the title, explanation and fix. The bundled script renders the comments and the review summary, validates every anchor against the PR diff, picks the review state and posts the review. Never write comment bodies or call the GitHub review API yourself.
+You decide severity, blocking and category, and write the title, explanation and fix. The bundled script renders the comments and the review summary, validates every inline anchor against the PR diff, picks the review state and posts the review. Never write comment bodies or call the GitHub review API yourself.
 
 ## Severity levels
 
@@ -40,39 +40,7 @@ Tag each finding with exactly one category:
 
 ## Findings file
 
-Write the findings as JSON to a file in the scratchpad:
-
-```json
-{
-  "findings": [
-    {
-      "severity": "major",
-      "blocking": false,
-      "category": "Error Handling",
-      "path": "src/orders/service.ts",
-      "startLine": 40,
-      "line": 42,
-      "title": "Retry loop swallows the final error",
-      "explanation": "Non-blocking because the caller logs the failed order. The last error of the retry loop is dropped, so the log never says why it failed.",
-      "suggestion": "throw lastError;"
-    }
-  ]
-}
-```
-
-| Field         | Required                   | Content                                                                                                                                                                                                |
-| ------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `severity`    | yes                        | `critical`, `major`, `minor`, `nitpick` or `question`                                                                                                                                                  |
-| `category`    | yes                        | One of the categories above, spelled exactly as listed                                                                                                                                                 |
-| `blocking`    | only for a non-blocking 🟠 | `false` for a non-blocking Major. Leave it out otherwise, the rules above decide                                                                                                                       |
-| `path`        | yes                        | File path relative to the repository root, as it appears in the PR diff                                                                                                                                |
-| `line`        | yes                        | The line the comment applies to; for a range, its last line                                                                                                                                            |
-| `startLine`   | no                         | The first line of a range. Start and end must lie in the same diff hunk                                                                                                                                |
-| `side`        | no                         | `RIGHT` (default): line numbers of the PR's version of the file, for added and unchanged lines. `LEFT`: line numbers of the base version, for deleted lines                                            |
-| `title`       | yes                        | Short title, max. 10 words                                                                                                                                                                             |
-| `explanation` | yes                        | What is wrong and why it matters, 1–4 sentences                                                                                                                                                        |
-| `suggestion`  | no                         | Code that replaces the anchored lines, when the fix is local to them. Rendered as a GitHub suggestion block, so it must keep the file's indentation. `""` suggests deleting the lines. Only on `RIGHT` |
-| `fix`         | no                         | The fix in prose, when it is not local to the anchored lines. Never together with `suggestion`                                                                                                         |
+Write the findings as JSON to a file in the scratchpad. The file must match the JSON Schema in `${CLAUDE_SKILL_DIR}/findings.schema.json`
 
 ## Publishing
 
@@ -84,13 +52,11 @@ Write the findings as JSON to a file in the scratchpad:
 
    Pass `--repo` unless the current directory is a clone of the PR's repository.
    - If it lists errors, fix the findings file and run it again.
+   - If an inline anchor is not in the diff, check the line number first. Set `inline` to `false` only when the finding really is about code outside the diff.
    - If it reports that the PR was opened by the posting account and the review has blocking findings, stop and ask the user how to proceed.
 2. Show the user the complete preview, including every warning, and ask for approval to post it.
 3. After approval, run the same command without `--dry-run` and report the review URL it prints.
 
-The script submits the review as **Request changes** when at least one finding is ⛔ Blocking and as **Comment** otherwise. It orders the comments by severity (🔴 → 💬), then by file path and line.
+The script submits the review as **Request changes** when at least one finding is ⛔ Blocking and as **Comment** otherwise. It orders the comments by severity (🔴 → 💬), then by file path and line. General findings appear in the review summary in the same order, with a link to the file at the PR's head commit when they name a path.
 
-## Working on GitHub
-
-Never use `#N` to reference a previous issue or number an issue, this will link with a GitHub Issue or PR.
 Only use `#N` to reference a GitHub Issue or PR. The script warns about every `#N` in a finding's text; remove it unless it references a GitHub Issue or PR.

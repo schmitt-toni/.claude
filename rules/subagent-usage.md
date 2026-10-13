@@ -9,23 +9,6 @@ tool restrictions — `Explore` for read-only fan-out searches, `Plan` for imple
 
 **Prefer multiple dedicated tasks**, rather than raising a tier.
 
-**Never fork without asking.** Do not fork the current session without asking the user for
-permission first.
-
-## Passing `model`
-
-The `Agent` tool's `model` parameter takes precedence over an agent definition's frontmatter, and
-it accepts only family aliases that resolve to the newest release. The two ways of choosing a model
-are therefore mutually exclusive:
-
-- **`model-*` agent → never pass `model`.** The pin is the tier. Passing `model` overrides the
-  frontmatter, so the call runs the family's latest model while still reading as pinned.
-- **Any other agent → always pass `model`.** These carry no model of their own; omitting it falls
-  through to the default subagent model instead of a chosen tier.
-- **`fork` → exempt.** It always runs on the parent conversation's model and ignores `model`.
-
-`hooks/agent-model-policy.sh` denies calls that break this.
-
 ## Available agents
 
 Every model has a base agent, `model-<model>`, which runs at the session's effort, and one agent
@@ -52,21 +35,36 @@ it supports, because an unsupported level is not rejected: it is silently lowere
 | `model-haiku-5-5` | `claude-haiku-5-5` | 1M / 128k | all | Current Haiku; defaults to `medium` effort |
 | `model-haiku-4-5` | `claude-haiku-4-5-20251001` | 200k / 64k | none | No effort levels |
 
-Opus 4.1 (`claude-opus-4-1-20250805`) is offered on Bedrock and Vertex only, not on a first-party
-Anthropic subscription, so it has no agent here.
+## Picking a model
 
-## Picking the tier
+Prefer the newer models (Opus 5.5, Sonnet 5.5, Haiku 5.5) always.
 
-Pick the tier from what the task produces, not from how important the surrounding goal is:
+For a few specific tasks older models are better:
+- Pushing back: Prefer Opus 4.8 or Sonnet 4.6
+- Low hallucination rate: Prefer Opus 4.8. It answers "I don't know" more often, but knows less than Opus 5.5 (accuracy 49% vs 66% on AA-Omniscience).
 
-- **haiku** — finding things and reporting them: grep, file listing, reading files, enumerating
-  conventions, mechanical summaries.
-- **sonnet** — work needing judgment: synthesizing constraints out of docs/ADRs, writing
-  non-trivial code, reviewing a diff.
-- **opus** — architecture decisions, subtle debugging, anything where a wrong answer is expensive
-  to notice.
-- **fable** — the problems opus does not crack: deep reasoning where getting it right matters more
-  than how long it takes. Expensive, so reserve it rather than reaching for it first.
+| Task | Model | Effort |
+| --- |
+| Multi-step implementation | Opus 5.5 | medium |
+| Long unattended runs | Opus 5.5 | xhigh |
+| Quick interactive edits | Sonnet 5.5 | low / medium |
+| Mechanical changes | Sonnet 5.5 | low / medium |
+| Exploration | Haiku 5.5 | low / medium |
+| Summarization | Haiku 5.5 | low / medium |
+| Extraction | Haiku 5.5 | medium |
+| Classification | Haiku 5.5 | medium |
+| Reasoning | Opus 5.5 | xhigh |
+| Math | Opus 5.5 | xhigh |
+| Factual recall | Opus 5.5 | high |
+| Architecture | Opus 5.5 | xhigh |
 
-**Consider older models too.** A superseded model of the right tier usually beats the newest model
-of a lower one, and the whole point of the pinned agents is that you can choose deliberately.
+Avoid `max` effort and Fable.
+
+### Code Reviews
+
+Prefer spawning multiple reviewers that review the same scope at the same time.
+A good pair is Opus 5.5 xhigh and Sonnet 5.5 high.
+
+### Credibility and detecting false claims
+
+No models is specialized for verification. Prefer writing a prompt that explicitly asks the model to challenge premises.

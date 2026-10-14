@@ -1,0 +1,71 @@
+{
+  "cleanupPeriodDays": 365,
+  "workflowKeywordTriggerEnabled": false,
+  "autoCompactWindow": 800000,
+  "autoCompactEnabled": true,
+  "idleCompaction": false,
+  "autoMemoryEnabled": false,
+  "promptSuggestionEnabled": false,
+  "askUserQuestionTimeout": "never",
+  "theme": "dark",
+  "editorMode": "normal",
+  "preferredNotifChannel": "auto",
+  "feedbackDrafts": "notify",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "deno run --allow-read=\"$HOME/.claude\" --allow-write=\"$HOME/.claude\" \"$HOME/.claude/hooks/sync-settings.ts\" apply"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$HOME/.claude/hooks/nvm-autouse.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/agent-model-policy.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/re-review-watch.ts\"",
+            "if": "Bash(*/.claude/skills/post-pr-review/scripts/post-review.ts *)",
+            "timeout": 86400,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat \"$HOME/.claude/hooks/compact-instructions.md\""
+          }
+        ]
+      }
+    ]
+  }
+}

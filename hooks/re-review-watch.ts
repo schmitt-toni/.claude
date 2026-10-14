@@ -4,7 +4,7 @@
 // and wakes Claude to run /re-review once the PR author re-requests a review
 // from the account that posted it.
 //
-// settings.json registers it with `asyncRewake`: it runs in the background,
+// settings.shared.json registers it with `asyncRewake`: it runs in the background,
 // and Claude Code wakes Claude, even in an idle session, when it exits with
 // code 2. Claude reads the hook's stderr on wake-up. The hook's `timeout`
 // bounds the watch: Claude Code kills the process when it is reached, and

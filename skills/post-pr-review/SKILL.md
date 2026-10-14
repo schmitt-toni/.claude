@@ -56,6 +56,7 @@ Write the findings as JSON to a file in the scratchpad. The file must match the 
    - If it reports that the PR was opened by the posting account and the review has blocking findings, stop and ask the user how to proceed.
 2. Show the user the complete preview, including every warning, and ask for approval to post it.
 3. After approval, run the same command without `--dry-run` and report the review URL it prints.
+   Tell the user that the PR is now watched for up to 24 hours while this session stays open, and that `/re-review` starts once the author re-requests the review. Do not start a watch yourself: a hook (`~/.claude/hooks/re-review-watch.ts`) does it after the review is posted. It stops on its own when the PR is closed, merged or converted to draft.
 
 The script submits the review as **Request changes** when at least one finding is ⛔ Blocking and as **Comment** otherwise. It orders the comments by severity (🔴 → 💬), then by file path and line. General findings appear in the review summary in the same order, with a link to the file at the PR's head commit when they name a path.
 

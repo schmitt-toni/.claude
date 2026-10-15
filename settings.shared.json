@@ -41,6 +41,15 @@
             "command": "\"$HOME/.claude/hooks/agent-model-policy.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/transcript-access-policy.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

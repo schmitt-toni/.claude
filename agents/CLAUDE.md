@@ -25,10 +25,21 @@ rename that stops at this folder leaves dangling references behind. Update all o
 same change:
 
 - `rules/subagent-usage.md` — the available-agents table and the tier guidance
-- `hooks/agent-model-policy.sh` — enforces the `model-*` prefix as the marker of a pinned agent
+- `hooks/agent-model-policy.sh` — treats the `model-*` prefix as the marker of a pinned agent
 - `skills/review-changes/SKILL.md` — names specific agents to prefer
 - `skills/review-agent-setup/SKILL.md` — names specific agents to prefer
 - `skills/delegate-next-tickets/SKILL.md` — spawns a named agent
+
+## Task agents
+
+A task agent exists for one kind of work and carries its own prompt and tool restrictions, unlike
+the model-pinned agents above. It pins `model:` and `effort:` in its frontmatter like they do, and
+`hooks/agent-model-policy.sh` reads that frontmatter, so it is called without a `model` parameter.
+The hook finds the file by name, so name it after the agent's `name:`.
+
+- `transcript-search` — the only agent allowed to search session transcripts and the prompt
+  history. Its name is repeated in `hooks/transcript-access-policy.sh` and
+  `skills/search-transcript/SKILL.md`; rename all three together.
 
 ## Which models and effort levels exist
 
@@ -40,4 +51,4 @@ The authoritative list is the signed catalog the CLI itself fetches at startup:
                   ((.runtime.effort_levels // []) | join(","))] | @tsv'
 
 A model whose `offered_on` omits `first_party` is unreachable on an Anthropic subscription and
-should not get an agent — that is why Opus 4.1 has none, being Bedrock- and Vertex-only.
+should not get an agent.

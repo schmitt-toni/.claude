@@ -9,3 +9,5 @@
 **Write for the reader, not for your session.** Comments, commit messages, PR descriptions, docs - anything a third party will read - must make sense without any knowledge of how the work happened. Drop references to your local context: no "as discussed above", no "part of the ongoing refactor", no "fixes the issue from the previous attempt". State what the code does and why it matters to someone reading it cold, months from now.
 
 **The User owns the architecture.** Everytime a decision is made, stop and think about that decision and present it to the user. The user owns the code and the architecture in the end of the day, the user needs to understand it, so let the user make the decision.
+
+**The User owns the agent documentation.** Any agent documentation is hand written by the user and it should stay that way. Post the changes to agent documentation in chat and let the user decide.

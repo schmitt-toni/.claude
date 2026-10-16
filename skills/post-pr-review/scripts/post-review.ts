@@ -4,10 +4,12 @@
 // call. Findings that are not inline are rendered into the review summary. The
 // findings file follows ../findings.schema.json.
 //
-// Usage: post-review.ts --pr <number> [--repo <[host/]owner/name>] [--dry-run] <findings.json>
+// Usage: post-review.ts --pr <number> [--repo <[host/]owner/name>] [--approve] [--dry-run] <findings.json>
 //   --pr       required. Pull request number.
 //   --repo     optional. Repository of the PR. Defaults to the repository of
 //              the current directory.
+//   --approve  optional. Submit the review as an approval. The findings file
+//              may then have no findings, and none of them may be blocking.
 //   --dry-run  optional. Validate and print the review instead of posting it.
 //
 // Exits 1 and lists every problem when the findings or the PR do not allow
@@ -70,7 +72,7 @@ export interface ReviewComment {
 
 export interface ReviewPayload {
   commit_id: string;
-  event: "REQUEST_CHANGES" | "COMMENT";
+  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
   body: string;
   comments: ReviewComment[];
 }
@@ -79,6 +81,12 @@ export interface FileDiff {
   // Commentable line number → index of the hunk it belongs to, per side.
   left: Map<number, number>;
   right: Map<number, number>;
+}
+
+export interface ReviewOptions {
+  approve?: boolean;
+  // Shown below the verdict, for details that are not a finding.
+  note?: string;
 }
 
 export interface PullRequest {
@@ -94,6 +102,7 @@ export interface PullRequest {
 interface Options {
   pr: number;
   repo?: string;
+  approve: boolean;
   dryRun: boolean;
   file: string;
 }
@@ -125,18 +134,23 @@ export const MAX_TITLE_WORDS = 10;
 const NON_BLOCKING_PREFIX = "Non-blocking because";
 
 const USAGE =
-  "Usage: post-review.ts --pr <number> [--repo <[host/]owner/name>] [--dry-run] <findings.json>";
+  "Usage: post-review.ts --pr <number> [--repo <[host/]owner/name>] [--approve] [--dry-run] <findings.json>";
 
 class UsageError extends Error {}
 
 export function parseArgs(args: string[]): Options {
   let pr: string | undefined;
   let repo: string | undefined;
+  let approve = false;
   let dryRun = false;
   let file: string | undefined;
 
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
+    if (arg === "--approve") {
+      approve = true;
+      continue;
+    }
     if (arg === "--dry-run") {
       dryRun = true;
       continue;
@@ -162,36 +176,53 @@ export function parseArgs(args: string[]): Options {
     throw new UsageError(`--pr must be a pull request number, got "${pr}"`);
   }
   if (file === undefined) throw new UsageError("the findings file is missing");
-  return { pr: Number(pr), repo, dryRun, file };
+  return { pr: Number(pr), repo, approve, dryRun, file };
 }
 
 export function parseFindings(
   input: unknown,
-): { findings: Finding[]; errors: string[] } {
+  approve = false,
+): { findings: Finding[]; note?: string; errors: string[] } {
   if (!isRecord(input) || !Array.isArray(input.findings)) {
     return {
       findings: [],
       errors: ['the file must contain an object with a "findings" array'],
     };
   }
-  if (input.findings.length === 0) {
+  if (input.findings.length === 0 && !approve) {
     return {
       findings: [],
-      errors: ["there are no findings; a review needs at least one"],
+      errors: [
+        "there are no findings; a review needs at least one unless it approves the PR",
+      ],
     };
   }
 
   const findings: Finding[] = [];
   const errors: string[] = [];
+  const { note } = input;
+  if (note !== undefined && !isNonEmptyString(note)) {
+    errors.push("note must be a non-empty string");
+  }
   input.findings.forEach((entry: unknown, index: number) => {
     const result = parseFinding(entry);
     if (Array.isArray(result)) {
       errors.push(...result.map((error) => `findings[${index}]: ${error}`));
       return;
     }
+    if (approve && result.blocking) {
+      errors.push(
+        `findings[${index}]: is blocking, so the review cannot approve the PR`,
+      );
+      return;
+    }
     findings.push(result);
   });
-  return { findings, errors };
+  return {
+    findings,
+    note: isNonEmptyString(note) ? note.trim() : undefined,
+    errors,
+  };
 }
 
 function parseFinding(entry: unknown): Finding | string[] {
@@ -548,7 +579,11 @@ function suggestionBlock(code: string): string {
   return `${fence}suggestion\n${content}\n${fence}`;
 }
 
-export function renderSummary(findings: Finding[], blobUrl: string): string {
+export function renderSummary(
+  findings: Finding[],
+  blobUrl: string,
+  { approve = false, note }: ReviewOptions = {},
+): string {
   const blocking = findings.filter((finding) => finding.blocking);
   const rows = SEVERITY_ORDER.map((severity) => {
     const { emoji, label } = SEVERITIES[severity];
@@ -556,11 +591,11 @@ export function renderSummary(findings: Finding[], blobUrl: string): string {
       .length;
     return `| ${emoji} ${label} | ${count} |`;
   });
-  const sections = [
-    "# 🤖 Review",
-    verdict(blocking.length),
-    ["| Severity | Count |", "|---|---|", ...rows].join("\n"),
-  ];
+  const sections = ["# 🤖 Review", verdict(blocking.length, approve)];
+  if (note !== undefined) sections.push(note);
+  if (findings.length > 0) {
+    sections.push(["| Severity | Count |", "|---|---|", ...rows].join("\n"));
+  }
   if (blocking.length > 0) {
     const items = blocking.map((finding) => {
       const item = `- ${SEVERITIES[finding.severity].emoji} ${finding.title}`;
@@ -581,7 +616,10 @@ export function renderSummary(findings: Finding[], blobUrl: string): string {
   return sections.join("\n\n");
 }
 
-function verdict(blockingCount: number): string {
+function verdict(blockingCount: number, approve: boolean): string {
+  if (approve) {
+    return "Approved: no blocking issues remain.";
+  }
   if (blockingCount === 0) {
     return "No blocking issues, a few suggestions below.";
   }
@@ -602,18 +640,27 @@ export function sortFindings(findings: Finding[]): Finding[] {
 export function buildReview(
   findings: Finding[],
   pullRequest: PullRequest,
+  options: ReviewOptions = {},
 ): ReviewPayload {
   const sorted = sortFindings(findings);
   return {
     commit_id: pullRequest.headSha,
-    event: sorted.some((finding) => finding.blocking)
-      ? "REQUEST_CHANGES"
-      : "COMMENT",
-    body: renderSummary(sorted, blobUrl(pullRequest)),
+    event: reviewEvent(sorted, options.approve ?? false),
+    body: renderSummary(sorted, blobUrl(pullRequest), options),
     comments: sorted
       .filter((finding): finding is InlineFinding => finding.inline)
       .map(toReviewComment),
   };
+}
+
+function reviewEvent(
+  findings: Finding[],
+  approve: boolean,
+): ReviewPayload["event"] {
+  if (approve) return "APPROVE";
+  return findings.some((finding) => finding.blocking)
+    ? "REQUEST_CHANGES"
+    : "COMMENT";
 }
 
 function blobUrl(pullRequest: PullRequest): string {
@@ -802,8 +849,9 @@ function printErrors(heading: string, errors: string[]): void {
 
 async function main(args: string[]): Promise<number> {
   const options = parseArgs(args);
-  const { findings, errors } = parseFindings(
+  const { findings, note, errors } = parseFindings(
     await readFindingsFile(options.file),
+    options.approve,
   );
   if (errors.length > 0) {
     printErrors("The findings file is invalid:", errors);
@@ -833,8 +881,12 @@ async function main(args: string[]): Promise<number> {
     return 1;
   }
 
-  const review = buildReview(findings, pullRequest);
-  if (review.event === "REQUEST_CHANGES") {
+  const review = buildReview(findings, pullRequest, {
+    approve: options.approve,
+    note,
+  });
+  // GitHub refuses REQUEST_CHANGES and APPROVE from the PR's own author.
+  if (review.event !== "COMMENT") {
     const viewer = (await gh([
       "api",
       "--hostname",
@@ -843,10 +895,12 @@ async function main(args: string[]): Promise<number> {
       "--jq",
       ".login",
     ])).trim();
-    // GitHub refuses REQUEST_CHANGES from the PR's own author.
     if (viewer === pullRequest.author) {
+      const refusal = review.event === "APPROVE"
+        ? "GitHub does not accept an approval on your own pull request."
+        : 'GitHub does not accept "Request changes" on your own pull request, and this review has blocking findings.';
       console.error(
-        `${pullRequest.url} was opened by ${viewer}, the account posting this review. GitHub does not accept "Request changes" on your own pull request, and this review has blocking findings.`,
+        `${pullRequest.url} was opened by ${viewer}, the account posting this review. ${refusal}`,
       );
       return 1;
     }

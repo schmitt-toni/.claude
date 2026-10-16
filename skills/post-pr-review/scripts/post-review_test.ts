@@ -119,9 +119,30 @@ const DIFF = [
 
 Deno.test("parseArgs reads all options", () => {
   assert.deepEqual(
-    parseArgs(["--pr", "12", "--repo", "acme/shop", "--dry-run", "f.json"]),
-    { pr: 12, repo: "acme/shop", dryRun: true, file: "f.json" },
+    parseArgs([
+      "--pr",
+      "12",
+      "--repo",
+      "acme/shop",
+      "--approve",
+      "--dry-run",
+      "f.json",
+    ]),
+    {
+      pr: 12,
+      repo: "acme/shop",
+      approve: true,
+      dryRun: true,
+      file: "f.json",
+    },
   );
+  assert.deepEqual(parseArgs(["--pr", "12", "f.json"]), {
+    pr: 12,
+    repo: undefined,
+    approve: false,
+    dryRun: false,
+    file: "f.json",
+  });
 });
 
 Deno.test("parseArgs rejects a missing or non-numeric PR", () => {
@@ -204,6 +225,33 @@ Deno.test("parseFindings checks the anchor of findings that are not inline", () 
 Deno.test("parseFindings requires at least one finding", () => {
   assert.match(parseFindings({ findings: [] }).errors[0], /at least one/);
   assert.match(parseFindings([]).errors[0], /"findings" array/);
+});
+
+Deno.test("parseFindings lets an approval have no findings, none blocking", () => {
+  assert.deepEqual(parseFindings({ findings: [] }, true), {
+    findings: [],
+    note: undefined,
+    errors: [],
+  });
+  assert.deepEqual(
+    parseFindings(
+      { findings: [rawFinding(), rawFinding({ severity: "major" })] },
+      true,
+    ).errors,
+    ["findings[1]: is blocking, so the review cannot approve the PR"],
+  );
+});
+
+Deno.test("parseFindings reads an optional note", () => {
+  assert.equal(
+    parseFindings({ findings: [rawFinding()], note: " Rebase onto main. " })
+      .note,
+    "Rebase onto main.",
+  );
+  assert.deepEqual(
+    parseFindings({ findings: [rawFinding()], note: " " }).errors,
+    ["note must be a non-empty string"],
+  );
 });
 
 Deno.test("parseFindings reports every problem with its index", () => {
@@ -426,6 +474,20 @@ Deno.test("renderSummary omits the blocking section when there is none", () => {
   );
 });
 
+Deno.test("renderSummary approves with a note and without findings", () => {
+  assert.equal(
+    renderSummary([], BLOB_URL, {
+      approve: true,
+      note: "Rebase onto main before merging.",
+    }),
+    [
+      "# 🤖 Review",
+      "Approved: no blocking issues remain.",
+      "Rebase onto main before merging.",
+    ].join("\n\n"),
+  );
+});
+
 Deno.test("buildReview orders comments and picks the review state", () => {
   const review = buildReview([
     finding({ severity: "nitpick", path: "a.ts", line: 1 }),
@@ -457,6 +519,16 @@ Deno.test("buildReview orders comments and picks the review state", () => {
     ],
   );
   assert.equal(buildReview([finding()], PULL_REQUEST).event, "COMMENT");
+});
+
+Deno.test("buildReview approves with the remaining findings", () => {
+  const review = buildReview([finding()], PULL_REQUEST, { approve: true });
+  assert.equal(review.event, "APPROVE");
+  assert.equal(review.comments.length, 1);
+  assert.match(
+    review.body,
+    /^# 🤖 Review\n\nApproved: no blocking issues remain\.\n\n\| Severity \| Count \|/,
+  );
 });
 
 Deno.test("renderSummary lists findings that are not inline", () => {
@@ -526,6 +598,7 @@ Deno.test("findIssueReferences ignores code, entities and URLs", () => {
 });
 
 Deno.test("the schema matches the fields and values the script accepts", () => {
+  assert.deepEqual(Object.keys(schema.properties).sort(), ["findings", "note"]);
   const { properties, required } = schema.$defs.finding;
   assert.deepEqual(Object.keys(properties).sort(), [...FINDING_FIELDS].sort());
   assert.deepEqual(properties.severity.enum, SEVERITY_ORDER);

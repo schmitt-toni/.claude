@@ -1,14 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Pull request review findings",
-  "description": "Input of scripts/post-review.ts. An inline finding becomes a comment on a line of the PR diff; a finding with inline set to false is posted under General findings in the review summary. The rules for severity, blocking and category are in the SKILL.md next to this file. The script also requires startLine to be lower than line, which JSON Schema cannot express.",
+  "description": "Input of scripts/post-review.ts. An inline finding becomes a comment on a line of the PR diff; a finding with inline set to false is posted under General findings in the review summary. The rules for severity, blocking and category are in the SKILL.md next to this file. The script also requires startLine to be lower than line, at least one finding unless the review approves the PR, and no blocking finding when it does, which JSON Schema cannot express.",
   "type": "object",
   "required": ["findings"],
   "properties": {
     "findings": {
+      "description": "At least one finding, unless the review approves the PR. An approving review has no blocking findings.",
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/finding" }
+    },
+    "note": {
+      "description": "Details worth mentioning that are not a finding, such as a needed rebase. Shown in the review summary below the verdict.",
+      "type": "string",
+      "pattern": "\\S"
     }
   },
   "$defs": {

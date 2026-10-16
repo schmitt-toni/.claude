@@ -14,10 +14,10 @@ For the Pull Request:
 Instruct the subagents to:
 
 - produce findings that match the JSON Schema at `${CLAUDE_SKILL_DIR}/../post-pr-review/findings.schema.json`
+   - the findings must be written to a unique file that you created
 - review the Pull Request the user supplied
 
 Other than those instructions don't give the subagent any other context. 
 If there is anything of note that the subagent needs for reviewing ask the user first if it is okay to include.
 
-Once all subagents/skills ran present all findings together.
-Ask to publish them with the `/post-pr-review` skill
+Once all subagents/skills ran merge the findings together and run `/post-pr-review`

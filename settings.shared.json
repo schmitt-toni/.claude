@@ -43,6 +43,15 @@
         ]
       },
       {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/transcript-search-contract.sh\""
+          }
+        ]
+      },
+      {
         "matcher": "Read|Grep|Glob|Bash",
         "hooks": [
           {

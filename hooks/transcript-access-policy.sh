@@ -41,6 +41,18 @@ case "$tool" in
 esac
 target=$(jq -r "($filter) // \"\"" <<<"$payload" 2>/dev/null) || exit 0
 
+# Claude Code saves a tool result too large to return inline under
+# projects/<project-dir>/<session-id>/tool-results/ and tells the agent to read
+# it from there. Guarded, it would be unreadable to the agent that produced it,
+# so the current session's tool results are exempt. A target containing `..` is
+# never exempt: such a path can start in tool-results/ and climb into a
+# transcript. The path prefix excludes `:` and `=` so that a guarded path glued
+# to a tool-results path is not stripped along with it.
+session_id=$(jq -r '.session_id // ""' <<<"$payload" 2>/dev/null) || exit 0
+if [[ "$session_id" =~ ^[A-Za-z0-9-]+$ ]] && [[ "$target" != *..* ]]; then
+  target=$(sed -E "s#[A-Za-z0-9_./~\${}-]*projects/[^/[:space:]\"']+/$session_id/tool-results/[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)?([[:space:]\"']|\$)#\2#g" <<<"$target")
+fi
+
 # Absolute, `~/` and `$HOME/` spellings all contain `.claude/<guarded>`.
 guarded='\.claude/(projects([/"'"'"'[:space:]]|$)|history\.jsonl)'
 # Inside ~/.claude itself the guarded paths are also reachable relatively.

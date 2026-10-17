@@ -35,20 +35,11 @@ same change:
 A task agent exists for one kind of work and carries its own prompt and tool restrictions, unlike
 the model-pinned agents above. It pins `model:` and `effort:` in its frontmatter like they do, and
 `hooks/agent-model-policy.sh` reads that frontmatter, so it is called without a `model` parameter.
-The hook finds the file by name, so name it after the agent's `name:`.
+The hook finds the file by name, so name it after the agent's `name:`. Scripts the agent runs live
+in a folder of the same name beside its file.
 
 - `transcript-search` — the only agent allowed to search session transcripts and the prompt
-  history. Its name is repeated in `hooks/transcript-access-policy.sh` and
-  `skills/search-transcript/SKILL.md`; rename all three together.
-
-## Which models and effort levels exist
-
-The authoritative list is the signed catalog the CLI itself fetches at startup:
-
-    curl -s https://downloads.claude.ai/model-catalog/v1/catalog.json \
-      | jq -r '.surfaces.cc.model_selector_config[].models[]
-               | [.id, .name, (.offered_on | join(",")),
-                  ((.runtime.effort_levels // []) | join(","))] | @tsv'
-
-A model whose `offered_on` omits `first_party` is unreachable on an Anthropic subscription and
-should not get an agent.
+  history. It writes excerpts with `transcript-search/render-excerpt.sh` and never judges them;
+  `hooks/transcript-search-contract.sh` makes every call name an output directory for them. Its
+  name is repeated in both hooks, `hooks/transcript-access-policy.sh` and
+  `hooks/transcript-search-contract.sh`, and in its script folder; rename them together.

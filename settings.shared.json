@@ -59,6 +59,15 @@
             "command": "\"$HOME/.claude/hooks/transcript-access-policy.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/commit-policy.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

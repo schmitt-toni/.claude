@@ -32,12 +32,14 @@ model=$(jq -r '.tool_input.model // ""' <<<"$payload" 2>/dev/null)
 
 [ "$agent" = "fork" ] && exit 0
 
-# Looks the agent up by file name, so a task agent's file must be named after
-# its `name:`. Only the frontmatter counts; a `model:` line in the prompt body
+# Looks the agent up by file name at any depth under ~/.claude/agents, so a task
+# agent's file must be named after its `name:`, but the folder it sits in does
+# not matter. Only the frontmatter counts; a `model:` line in the prompt body
 # does not pin anything.
 pins_model() {
-  local file="$HOME/.claude/agents/$1.md"
-  [ -f "$file" ] || return 1
+  local file
+  file=$(find "$HOME/.claude/agents" -type f -name "$1.md" 2>/dev/null | head -n 1)
+  [ -n "$file" ] || return 1
   awk 'NR == 1 { if ($0 != "---") exit 1; next }
        $0 == "---" { exit 1 }
        /^model:[[:space:]]*[^[:space:]]/ { found = 1; exit 0 }
@@ -67,7 +69,7 @@ case "$agent" in
   *)
     if pins_model "$agent"; then
       if [ -n "$model" ]; then
-        deny "Blocked by agent-model-policy: subagent_type \"$agent\" pins its model in the frontmatter of ~/.claude/agents/$agent.md, but \`model: $model\` was passed too. The \`model\` parameter overrides the pin, so this would run the newest model of that family instead of the pinned version. Drop \`model\`."
+        deny "Blocked by agent-model-policy: subagent_type \"$agent\" pins its model in the frontmatter of $agent.md under ~/.claude/agents, but \`model: $model\` was passed too. The \`model\` parameter overrides the pin, so this would run the newest model of that family instead of the pinned version. Drop \`model\`."
       fi
     elif [ -z "$model" ]; then
       deny "Blocked by agent-model-policy: subagent_type \"$agent\" is not model-pinned and no \`model\` was passed, so it would run on the default subagent model. Pass \`model\` explicitly, or use a model-* agent instead if you do not need this agent's prompt or tool restrictions."

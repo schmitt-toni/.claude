@@ -15,8 +15,8 @@
 # unreadable to the agent that has to judge them. A path containing `..` is
 # refused outright rather than resolved.
 #
-# The agent name is repeated in agents/transcript-search.md and
-# hooks/transcript-access-policy.sh; rename all of them together.
+# The agent name is repeated in agents/transcript-search/transcript-search.md
+# and hooks/transcript-access-policy.sh; rename all of them together.
 #
 # Fails open. A malformed payload or a missing jq must never wedge a session.
 

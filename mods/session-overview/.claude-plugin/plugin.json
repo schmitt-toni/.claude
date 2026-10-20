@@ -1,0 +1,29 @@
+{
+  "name": "session-overview",
+  "version": "0.1.0",
+  "description": "Keeps a per-turn log of a long-running session and shows where it stands: goal, progress, whether it is on track, decisions and open questions.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "logModel": {
+      "type": "string",
+      "title": "Log model",
+      "description": "Writes each turn's note and rebuilds the overview.",
+      "options": ["Opus 5.5", "Fable 5.1", "Sonnet 5.5", "Haiku 5.5", "Haiku 4.5", "Sonnet 5", "Opus 5", "Fable 5", "Opus 4.8", "Opus 4.7", "Opus 4.6", "Sonnet 4.6"],
+      "default": "Haiku 5.5"
+    },
+    "chatModel": {
+      "type": "string",
+      "title": "Chat model",
+      "description": "Answers questions in the overview pane from the notes. The pane can switch it for the rest of the session.",
+      "options": ["Opus 5.5", "Fable 5.1", "Sonnet 5.5", "Haiku 5.5", "Haiku 4.5", "Sonnet 5", "Opus 5", "Fable 5", "Opus 4.8", "Opus 4.7", "Opus 4.6", "Sonnet 4.6"],
+      "default": "Haiku 5.5"
+    },
+    "transcriptModel": {
+      "type": "string",
+      "title": "Transcript model",
+      "description": "Answers questions in the overview pane from a trimmed copy of the conversation. The pane can switch it for the rest of the session.",
+      "options": ["Opus 5.5", "Fable 5.1", "Sonnet 5.5", "Haiku 5.5", "Haiku 4.5", "Sonnet 5", "Opus 5", "Fable 5", "Opus 4.8", "Opus 4.7", "Opus 4.6", "Sonnet 4.6"],
+      "default": "Opus 5.5"
+    }
+  }
+}

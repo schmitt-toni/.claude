@@ -13,3 +13,6 @@ skills/.trash
 !rules/**
 !hooks/
 !hooks/**
+!mods/
+!mods/**
+mods/*/.claude-plugin/types/

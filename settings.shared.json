@@ -1,5 +1,8 @@
 {
   "cleanupPeriodDays": 365,
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/session-overview"
+  },
   "workflowKeywordTriggerEnabled": false,
   "autoCompactWindow": 800000,
   "autoCompactEnabled": true,

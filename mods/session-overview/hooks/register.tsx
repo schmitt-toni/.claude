@@ -53,6 +53,9 @@ const API_CACHE_TTL_MS = 5 * 60 * 1000
 const DIALOG_LINE_CHARS = 78
 // Wide enough for the longest ask-again label and its hotkey, so the models line up beside them.
 const ASK_AGAIN_COLUMNS = 48
+// The ✦ and the space after it, so the band's and the dialog's buttons sit under the
+// headline's text the way the engine's own notices indent theirs.
+const HEADLINE_INDENT_COLUMNS = 2
 const RECORD_PREFIX = 'session:'
 const UNUSED_INDEX_KEY = 'index'
 
@@ -283,7 +286,7 @@ export const register: Register = (on, options) => {
         <Text wrap="truncate-end">
           <Text color="cyan">✦</Text> <Text dimColor>Overview ·</Text> {headline(current)}
         </Text>
-        <Box flexDirection="row">
+        <Box flexDirection="row" paddingLeft={HEADLINE_INDENT_COLUMNS}>
           <Button
             key="overview"
             plain
@@ -316,7 +319,9 @@ export const register: Register = (on, options) => {
         <Text bold>{clip(`✦ ${STATUS_LABEL[overview.status]} · ${overview.goal}`, DIALOG_LINE_CHARS)}</Text>
         {now && <Text>{clip(`  Now:  ${now}`, DIALOG_LINE_CHARS)}</Text>}
         {nextStep && <Text>{clip(`  Next: ${nextStep}`, DIALOG_LINE_CHARS)}</Text>}
-        <Button key="overview" label={isOpen ? 'Close overview' : 'Open overview'} onPress={() => void togglePane($)} />
+        <Box paddingLeft={HEADLINE_INDENT_COLUMNS}>
+          <Button key="overview" label={isOpen ? 'Close overview' : 'Open overview'} onPress={() => void togglePane($)} />
+        </Box>
         {dialog}
       </Box>
     )

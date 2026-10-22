@@ -1,7 +1,327 @@
 {
   "cleanupPeriodDays": 365,
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/session-overview"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/session-overview",
+    "DOTNET_SYSTEM_NET_DISABLEIPV6": "1",
+    "GNUPGHOME": "/Users/toni/.gnupg-sandbox"
+  },
+  "permissions": {
+    "ask": [
+      "Agent(model:fable)",
+      "Bash(dangerouslyDisableSandbox:true)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.config/op/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.netrc)",
+      "Read(~/.aws/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.config/git/credentials)",
+      "Read(~/.gnupg/private-keys-v1.d/**)",
+      "Read(~/.gnupg/openpgp-revocs.d/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.config/github-copilot/**)",
+      "Read(~/.codex/auth.json)",
+      "Read(~/.microsoft/usersecrets/**)",
+      "Read(~/bitwarden-export/**)",
+      "Read(~/api.json)",
+      "Read(~/**/*private_key*)",
+      "Read(~/Library/Application Support/Bitwarden/**)",
+      "Read(~/Library/Application Support/Bitwarden CLI/**)",
+      "Read(~/Library/Containers/com.bitwarden.desktop/**)",
+      "Read(~/Library/Group Containers/LTZ2PFU5D6.com.bitwarden.desktop/**)",
+      "Read(~/Library/Application Support/1Password/**)",
+      "Read(~/Library/Group Containers/2BUA8C4S2C.com.1password/**)",
+      "Read(~/Library/Group Containers/group.2BUA8C4S2C.com.1password/**)",
+      "Read(~/Library/Group Containers/2BUA8C4S2C.com.agilebits/**)",
+      "Read(~/Library/Keychains/**)",
+      "Read(~/**/*.p12)",
+      "Read(~/**/*.pfx)",
+      "Read(~/**/id_rsa*)",
+      "Read(~/**/id_ed25519*)",
+      "Read(~/Library/Application Support/Google/Chrome/**)",
+      "Read(~/Library/Application Support/Chromium/**)",
+      "Read(~/Library/Application Support/BraveSoftware/**)",
+      "Read(~/Library/Application Support/Microsoft Edge/**)",
+      "Read(~/Library/Application Support/Arc/**)",
+      "Read(~/Library/Application Support/Vivaldi/**)",
+      "Read(~/Library/Application Support/com.operasoftware.Opera/**)",
+      "Read(~/Library/Application Support/Firefox/**)",
+      "Read(~/Library/Application Support/Claude/**)",
+      "Read(~/Library/Application Support/Signal/**)",
+      "Read(~/Library/Application Support/discord/**)",
+      "Read(~/Library/Safari/**)",
+      "Read(~/Library/Cookies/**)",
+      "Read(~/Library/Messages/**)",
+      "Read(~/Library/Mail/**)",
+      "Read(~/.zsh_history)",
+      "Read(~/.bash_history)",
+      "Read(~/.zsh_sessions/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": true,
+    "enableWeakerNetworkIsolation": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.nuget/packages",
+        "~/.local/share/NuGet",
+        "~/.npm",
+        "~/Library/pnpm/store",
+        "~/Library/Caches/pnpm",
+        "~/.bun/install/cache",
+        "~/Library/Caches/deno",
+        "~/Library/Caches/go-build",
+        "~/go/pkg/mod",
+        "~/go/pkg/sumdb",
+        "~/Library/Caches/pip",
+        "~/Library/Caches/org.swift.swiftpm",
+        "~/Library/org.swift.swiftpm",
+        "~/.gnupg-sandbox",
+        "/private/var/folders/*/*/T/**/*"
+      ],
+      "denyRead": [
+        "~/Library/Application Support/Google/Chrome",
+        "~/Library/Application Support/Chromium",
+        "~/Library/Application Support/BraveSoftware",
+        "~/Library/Application Support/Microsoft Edge",
+        "~/Library/Application Support/Arc",
+        "~/Library/Application Support/Vivaldi",
+        "~/Library/Application Support/com.operasoftware.Opera",
+        "~/Library/Application Support/Firefox",
+        "~/Library/Application Support/Claude",
+        "~/Library/Application Support/Signal",
+        "~/Library/Application Support/discord",
+        "~/Library/Safari",
+        "~/Library/Cookies",
+        "~/Library/Messages",
+        "~/Library/Mail",
+        "~/.zsh_history",
+        "~/.bash_history",
+        "~/.zsh_sessions"
+      ]
+    },
+    "network": {
+      "allowUnixSockets": [
+        "~/.gnupg/S.gpg-agent.extra"
+      ],
+      "allowedDomains": [
+        "api.nuget.org",
+        "registry.npmjs.org",
+        "npm.jsr.io",
+        "jsr.io",
+        "deno.land",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "storage.googleapis.com",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "release-assets.githubusercontent.com"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/op",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.npmrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.netrc",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.aws",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.kube",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.git-credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/git/credentials",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg/private-keys-v1.d",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg/openpgp-revocs.d",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.claude/.credentials.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/github-copilot",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.codex/auth.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.microsoft/usersecrets",
+          "mode": "deny"
+        },
+        {
+          "path": "~/bitwarden-export",
+          "mode": "deny"
+        },
+        {
+          "path": "~/api.json",
+          "mode": "deny"
+        },
+        {
+          "path": "~/**/*private_key*",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Application Support/Bitwarden",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Application Support/Bitwarden CLI",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Containers/com.bitwarden.desktop",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Group Containers/LTZ2PFU5D6.com.bitwarden.desktop",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Application Support/1Password",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Group Containers/2BUA8C4S2C.com.1password",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Group Containers/group.2BUA8C4S2C.com.1password",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Group Containers/2BUA8C4S2C.com.agilebits",
+          "mode": "deny"
+        },
+        {
+          "path": "~/Library/Keychains",
+          "mode": "deny"
+        },
+        {
+          "path": "~/**/*.p12",
+          "mode": "deny"
+        },
+        {
+          "path": "~/**/*.pfx",
+          "mode": "deny"
+        },
+        {
+          "path": "~/**/id_rsa*",
+          "mode": "deny"
+        },
+        {
+          "path": "~/**/id_ed25519*",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "GH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NPM_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NODE_AUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "NUGET_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "BW_SESSION",
+          "mode": "deny"
+        },
+        {
+          "name": "BW_CLIENTID",
+          "mode": "deny"
+        },
+        {
+          "name": "BW_CLIENTSECRET",
+          "mode": "deny"
+        },
+        {
+          "name": "BW_PASSWORD",
+          "mode": "deny"
+        },
+        {
+          "name": "OP_SERVICE_ACCOUNT_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "OP_CONNECT_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "CLAUDE_CODE_OAUTH_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "mode": "deny"
+        },
+        {
+          "name": "AWS_SESSION_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "AZURE_DEVOPS_EXT_PAT",
+          "mode": "deny"
+        },
+        {
+          "name": "CLAUDE_CODE_OAUTH_REFRESH_TOKEN",
+          "mode": "deny"
+        }
+      ]
+    }
   },
   "workflowKeywordTriggerEnabled": false,
   "autoCompactWindow": 800000,
@@ -69,6 +389,15 @@
           {
             "type": "command",
             "command": "\"$HOME/.claude/hooks/commit-policy.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/hooks/kill-policy.sh\""
           }
         ]
       }

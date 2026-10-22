@@ -185,6 +185,8 @@ export const register: Register = (on, options) => {
         <Box flexDirection="row" gap={3}>
           <Button key="refresh" plain hotkey="1" label="Refresh" onPress={() => queueRefresh($)} />
           <Button key="fill" plain hotkey="2" label="Put in prompt" onPress={() => void fillPrompt($)} />
+          {/* Some terminals cannot reach the pane's own close mark; 9 matches the band's button that opens it. */}
+          <Button key="close" plain hotkey="9" label="Close" onPress={() => void closePane($)} />
         </Box>
         {Input && (
           <Box flexDirection="column">
@@ -282,7 +284,7 @@ export const register: Register = (on, options) => {
     const isOpen = await read($, isPaneOpen)
 
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" marginTop={1}>
         <Text wrap="truncate-end">
           <Text color="cyan">✦</Text> <Text dimColor>Overview ·</Text> {headline(current)}
         </Text>
@@ -329,13 +331,15 @@ export const register: Register = (on, options) => {
 }
 
 async function togglePane($: EngineInterface) {
-  if (await read($, isPaneOpen)) {
-    await $.ui.close({ id: PANE })
-    return update($, isPaneOpen, () => false)
-  }
+  if (await read($, isPaneOpen)) return closePane($)
 
   await $.ui.open({ id: PANE, title: PANE_TITLE })
   await update($, isPaneOpen, () => true)
+}
+
+async function closePane($: EngineInterface) {
+  await $.ui.close({ id: PANE })
+  await update($, isPaneOpen, () => false)
 }
 
 /** Runs `job` after every job queued before it; resolves or rejects with the job itself. */

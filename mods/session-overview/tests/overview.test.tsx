@@ -254,6 +254,45 @@ test('the band opens the pane only when pressed, then offers to close it', async
   }
 })
 
+test('the pane closes itself from its own button, and the band then offers to open it again', async ($, on) => {
+  session(on, {})
+  const closed: string[] = []
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('ui.close', ($, e) => {
+    closed.push(e.id)
+
+    return { value: undefined }
+  })
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const { Box } = $.ui.resolve(e)
+
+    return <Box />
+  })
+
+  const band = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 10,
+      bodyColumns: 100,
+      scroll: { offset: 0, bodyRows: 9 },
+      view: {},
+    },
+  })
+  await band.press({ key: 'overview' })
+  const pane = await openPane($)
+  expect((await pane.find({ key: 'close' }))?.text).toBe('Close')
+
+  await pane.press({ key: 'close' })
+  expect(closed).toEqual(['session-overview'])
+  expect((await band.find({ key: 'overview' }))?.text).toBe('Open overview')
+  await pane.unmount()
+  await band.unmount()
+})
+
 test('the question dialog shows status, now and next within its rows, and opens the pane on a press', async ($, on) => {
   const long = ' and more'.repeat(40)
   const overview: Overview = {
